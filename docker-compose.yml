@@ -1,0 +1,61 @@
+version: '3'
+services:
+  zookeeper:
+    build:
+        context: ./kafla
+    container_name: zookeeper
+    command: /kafka_2.13-2.7.0/bin/zookeeper-server-start.sh  /kafka_2.13-2.7.0/config/zookeeper.properties
+    networks:
+      - some-net
+    ports:
+    - 2181:2181
+
+  kafla:
+    build:
+        context: ./kafla
+    container_name: kafla
+    networks:
+      - some-net
+    ports:
+    - 9092:9092
+    depends_on:
+    - zookeeper
+    restart: always
+
+  producer:
+    build:
+        context: ./producer
+    container_name: producer
+    networks:
+      - some-net
+    ports:
+    - 8080:8080
+    depends_on:
+    - kafla
+
+  consumer:
+    build:
+        context: ./consumer
+    container_name: consumer
+    networks:
+      - some-net
+    depends_on:
+    - kafla
+    environment:
+      - PRIVATE_KEY=${PRIVATE_KEY}
+      - APP_NAME=${APP_NAME:-flask-app}
+      - SUB_NAME=${SUB_NAME:-backend}
+      - COMPANY_ID=${COMPANY_ID}
+    # Setup logging driver
+    logging:
+      driver: gelf
+      options:
+        # Address of Coralogix syslog server
+        gelf-address: "udp://syslogserver.coralogix.com:20001"
+        # Required parameters for request
+        env: "PRIVATE_KEY,APP_NAME,SUB_NAME,COMPANY_ID"
+
+
+networks:
+  some-net:
+    driver: bridge
